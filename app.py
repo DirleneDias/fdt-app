@@ -82,3 +82,44 @@ if file_original and file_alterado:
 
 else:
     st.info("📂 Por favor, envie os dois arquivos CSV para começar.")
+
+# --- Bloco de interpretação automática ---
+st.markdown("### 🧠 Interpretação dos Resultados")
+
+if p_value < 0.05:
+    direcao = "maior" if mean_a > mean_b else "menor"
+    intensidade = (
+        "pequeno" if cohen_d < 0.3 else
+        "moderado" if cohen_d < 0.6 else
+        "grande"
+    )
+
+    st.success(
+        f"""
+        ✅ **Diferença estatisticamente significativa (p = {p_value:.5f})**
+
+        - A média da condição **A** ({mean_a:.2f}) é **{direcao}** que a da condição **B** ({mean_b:.2f}).
+        - A diferença média é de **{mean_diff:.2f} pontos**.
+        - O teste **Wilcoxon** indica que essa diferença **não ocorreu por acaso**.
+        - O **tamanho de efeito (Cohen’s d = {cohen_d:.2f})** é **{intensidade}**, o que significa que a diferença é **{ 'sutil' if intensidade=='pequeno' else 'relevante' if intensidade=='moderado' else 'forte' }**.
+        """
+    )
+else:
+    intensidade = (
+        "muito pequeno" if cohen_d < 0.2 else
+        "pequeno" if cohen_d < 0.3 else
+        "moderado"
+    )
+
+    st.info(
+        f"""
+        ❌ **Nenhuma diferença estatisticamente significativa (p = {p_value:.5f})**
+
+        - As médias são **sem diferença significativa** (A = {mean_a:.2f}, B = {mean_b:.2f}).
+        - A diferença observada (**{mean_diff:.2f}**) pode ter ocorrido por acaso.
+        - O **tamanho de efeito (Cohen’s d = {cohen_d:.2f})** é **{intensidade}**, indicando impacto discreto.
+        """
+    )
+
+st.caption("💬 Interpretação gerada automaticamente com base nos resultados estatísticos.")
+
