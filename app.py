@@ -1,20 +1,18 @@
-# app.py
+# app_corrigido.py
 # ---------------------------------------------------------
 # Interface Streamlit para comparar dois arquivos (original vs alterado)
-# e testar diferenças estatísticas nas competências
+# e testar diferenças estatísticas nas competências, com interpretação automática
 # ---------------------------------------------------------
 
 import streamlit as st
 import pandas as pd
 from thinking_limit_analysis import test_competencia
 
-
 # --- Configuração da página ---
 st.set_page_config(page_title="Análise de Competências", page_icon="📊", layout="centered")
 
 st.title("📊 Comparador de Competências")
 st.write("Envie dois arquivos CSV — o **original** e o **com alteração** — para comparar as competências.")
-
 
 # --- Upload dos arquivos ---
 col1, col2 = st.columns(2)
@@ -24,7 +22,6 @@ with col1:
 
 with col2:
     file_alterado = st.file_uploader("📁 Arquivo ALTERADO (com limitação)", type=["csv"], key="alterado")
-
 
 # --- Processamento após upload ---
 if file_original and file_alterado:
@@ -71,55 +68,74 @@ if file_original and file_alterado:
             st.write(f"**p-valor:** {teste['p_value']:.5f}")
             st.write(f"**Normalidade (Shapiro):** p = {teste['shapiro_p']:.5f} → {teste['normalidade']}")
 
-            # Interpretação automática
-            if teste["p_value"] < 0.05:
-                st.success("🔹 Diferença estatisticamente significativa (p < 0.05).")
+            # --- Interpretação automática ---
+            st.markdown("### 🧠 Interpretação dos Resultados")
+
+            p_value = teste["p_value"]
+            mean_a = metricas.get("mean_a")
+            mean_b = metricas.get("mean_b")
+            mean_diff = metricas.get("mean_diff")
+            cohen_d = metricas.get("cohen_d")
+
+            if p_value < 0.05:
+                direcao = "maior" if mean_a > mean_b else "menor"
+                intensidade = (
+                    "pequeno" if cohen_d < 0.3 else
+                    "moderado" if cohen_d < 0.6 else
+                    "grande"
+                )
+
+                st.markdown(
+                    f'''
+                    <div style="
+                        background-color:#d1f7d6;
+                        border-left:6px solid #2ecc71;
+                        padding:15px;
+                        border-radius:10px;
+                        margin-top:10px;
+                    ">
+                    <h4>✅ Teste estatisticamente <b>relevante</b> (p = {p_value:.5f})</h4>
+                    <ul>
+                        <li>A média da condição <b>A</b> ({mean_a:.2f}) é <b>{direcao}</b> que a da condição <b>B</b> ({mean_b:.2f}).</li>
+                        <li>Diferença média: <b>{mean_diff:.2f}</b> pontos.</li>
+                        <li>O teste indica que essa diferença <b>não ocorreu por acaso</b>.</li>
+                        <li><b>Tamanho de efeito (Cohen’s d = {cohen_d:.2f})</b>: {intensidade} ({'relevante' if cohen_d >= 0.3 else 'sutil'}).</li>
+                    </ul>
+                    </div>
+                    ''',
+                    unsafe_allow_html=True
+                )
             else:
-                st.info("🔸 Diferença **não significativa** (p ≥ 0.05).")
+                intensidade = (
+                    "muito pequeno" if cohen_d < 0.2 else
+                    "pequeno" if cohen_d < 0.3 else
+                    "moderado"
+                )
+
+                st.markdown(
+                    f'''
+                    <div style="
+                        background-color:#ffe6e6;
+                        border-left:6px solid #e74c3c;
+                        padding:15px;
+                        border-radius:10px;
+                        margin-top:10px;
+                    ">
+                    <h4>❌ Teste <b>não relevante</b> (p = {p_value:.5f})</h4>
+                    <ul>
+                        <li>As médias são semelhantes (A = {mean_a:.2f}, B = {mean_b:.2f}).</li>
+                        <li>Diferença observada ({mean_diff:.2f}) pode ter ocorrido ao acaso.</li>
+                        <li><b>Tamanho de efeito (Cohen’s d = {cohen_d:.2f})</b>: {intensidade}.</li>
+                    </ul>
+                    </div>
+                    ''',
+                    unsafe_allow_html=True
+                )
+
+            st.caption("💬 Interpretação gerada automaticamente com base nas estatísticas calculadas.")
 
         except Exception as e:
             st.error(f"Erro ao processar: {e}")
 
 else:
     st.info("📂 Por favor, envie os dois arquivos CSV para começar.")
-
-# --- Bloco de interpretação automática ---
-st.markdown("### 🧠 Interpretação dos Resultados")
-
-if p_value < 0.05:
-    direcao = "maior" if mean_a > mean_b else "menor"
-    intensidade = (
-        "pequeno" if cohen_d < 0.3 else
-        "moderado" if cohen_d < 0.6 else
-        "grande"
-    )
-
-    st.success(
-        f"""
-        ✅ **Diferença estatisticamente significativa (p = {p_value:.5f})**
-
-        - A média da condição **A** ({mean_a:.2f}) é **{direcao}** que a da condição **B** ({mean_b:.2f}).
-        - A diferença média é de **{mean_diff:.2f} pontos**.
-        - O teste **Wilcoxon** indica que essa diferença **não ocorreu por acaso**.
-        - O **tamanho de efeito (Cohen’s d = {cohen_d:.2f})** é **{intensidade}**, o que significa que a diferença é **{ 'sutil' if intensidade=='pequeno' else 'relevante' if intensidade=='moderado' else 'forte' }**.
-        """
-    )
-else:
-    intensidade = (
-        "muito pequeno" if cohen_d < 0.2 else
-        "pequeno" if cohen_d < 0.3 else
-        "moderado"
-    )
-
-    st.info(
-        f"""
-        ❌ **Nenhuma diferença estatisticamente significativa (p = {p_value:.5f})**
-
-        - As médias são **sem diferença significativa** (A = {mean_a:.2f}, B = {mean_b:.2f}).
-        - A diferença observada (**{mean_diff:.2f}**) pode ter ocorrido por acaso.
-        - O **tamanho de efeito (Cohen’s d = {cohen_d:.2f})** é **{intensidade}**, indicando impacto discreto.
-        """
-    )
-
-st.caption("💬 Interpretação gerada automaticamente com base nos resultados estatísticos.")
-
